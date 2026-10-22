@@ -1,0 +1,44 @@
+
+const int totalActuators = 5;
+const int firstPin = 2;
+const int testTime = 1000; 
+const int pauseTime = 1000;
+
+void allOff() {
+  for (int i = 0; i < totalActuators * 2; i++) {
+    digitalWrite(firstPin + i, LOW);
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  for (int i = 0; i < totalActuators * 2; i++) {
+    pinMode(firstPin + i, OUTPUT);
+  }
+  allOff();
+}
+
+void loop() {
+  for (int i = 0; i < totalActuators; i++) {
+    int lowerPin = firstPin + (i * 2);
+    int higherPin = lowerPin + 1;
+
+    Serial.print("Testing actuator ");
+    Serial.println(i + 1);
+
+    allOff();
+    digitalWrite(higherPin, HIGH);
+    delay(testTime);
+
+    allOff();
+    delay(pauseTime);
+
+    allOff();
+    digitalWrite(lowerPin, HIGH);
+    delay(testTime);
+
+    allOff();
+    delay(pauseTime);
+  }
+}
