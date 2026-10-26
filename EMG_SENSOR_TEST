@@ -9,7 +9,6 @@ void setup() {
 }
 
 void loop() {
-  loop()
   long total = 0;
   int minimum = 1023;
   int maximum = 0;
