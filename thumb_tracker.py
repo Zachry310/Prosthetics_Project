@@ -28,7 +28,7 @@ except:
      print("arduino not found")
 
 THUMB_MIN = 40
-THUMB_MAX = 180
+THUMB_MAX = 300
 
 THUMB_MIN_OT = 0
 THUMB_MAX_OT = 180
