@@ -1,0 +1,613 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import serial
+import time
+import threading
+
+ #arduino
+
+PORT = "COM3"
+BAUD = 115200
+
+NUM_ACTUATORS = 3
+
+try:
+    arduino = serial.Serial(
+        PORT,
+        BAUD,
+        timeout=1
+    )
+
+    time.sleep(2)
+
+    print("Connected to Arduino")
+
+except Exception as e:
+    arduino = None
+    print("Arduino not connected:")
+    print(e)
+
+#printing conection
+
+def send_command(command):
+
+    if arduino is None:
+        print("Arduino not connected")
+        return
+
+    try:
+        arduino.write(
+            (command + "\n").encode()
+        )
+
+        print("Sent:", command)
+
+    except Exception as e:
+        print("Serial error:", e)
+
+
+#actuator settings for GUI
+
+def move_actuator(actuator, direction):
+
+    try:
+        milliseconds = int(
+            time_entries[actuator].get()
+        )
+
+    except ValueError:
+        messagebox.showerror(
+            "Invalid Time",
+            "Enter a whole number."
+        )
+        return
+
+    if milliseconds <= 0:
+        messagebox.showerror(
+            "Invalid Time",
+            "Time must be greater than 0."
+        )
+        return
+
+    command = (
+        f"MOVE,{actuator},{direction},{milliseconds}"
+    )
+
+    send_command(command)
+
+
+#adding multiple actions
+
+actions = []
+
+
+def add_action():
+
+    try:
+        actuator = int(
+            actuator_selector.get()
+        )
+
+        direction = direction_selector.get()
+
+        milliseconds = int(
+            action_time.get()
+        )
+
+    except ValueError:
+        messagebox.showerror(
+            "Invalid Action",
+            "Please enter a valid actuator and time."
+        )
+        return
+
+
+    if milliseconds <= 0:
+        messagebox.showerror(
+            "Invalid Time",
+            "Time must be greater than 0."
+        )
+        return
+
+
+    action = {
+        "actuator": actuator,
+        "direction": direction,
+        "time": milliseconds
+    }
+
+    actions.append(action)
+
+    update_action_list()
+
+
+#removing an action
+
+def remove_action():
+
+    selected = action_list.curselection()
+
+    if not selected:
+        return
+
+    index = selected[0]
+
+    actions.pop(index)
+
+    update_action_list()
+
+#removing all actions
+
+def clear_actions():
+
+    actions.clear()
+
+    update_action_list()
+
+
+#updating the action list
+
+def update_action_list():
+
+    action_list.delete(
+        0,
+        tk.END
+    )
+
+    for i, action in enumerate(actions):
+
+        actuator = action["actuator"] + 1
+
+        direction = action["direction"]
+
+        milliseconds = action["time"]
+
+        if direction == "U":
+            direction_text = "UP"
+        else:
+            direction_text = "DOWN"
+
+        text = (
+            f"{i + 1}.  "
+            f"Actuator {actuator}  |  "
+            f"{direction_text}  |  "
+            f"{milliseconds} ms"
+        )
+
+        action_list.insert(
+            tk.END,
+            text
+        )
+
+
+#sending series to actuators
+
+def send_sequence():
+
+    if len(actions) == 0:
+
+        messagebox.showwarning(
+            "Empty Sequence",
+            "Add at least one action first."
+        )
+
+        return
+
+
+    if arduino is None:
+
+        messagebox.showerror(
+            "Arduino",
+            "Arduino is not connected."
+        )
+
+        return
+
+
+    #ran in a separate thread so the GUI doesn't freeze
+
+    threading.Thread(
+        target=run_sequence,
+        daemon=True
+    ).start()
+
+
+def run_sequence():
+
+    status.config(
+        text="Running sequence..."
+    )
+
+
+    for action in actions:
+
+        actuator = action["actuator"]
+
+        direction = action["direction"]
+
+        milliseconds = action["time"]
+
+
+        command = (
+            f"MOVE,{actuator},{direction},{milliseconds}"
+        )
+
+
+        send_command(command)
+
+
+#Wait for this action to finish before sending anything else
+        
+        time.sleep(
+            milliseconds / 1000.0
+        )
+
+#funky break beteewn actions
+
+        time.sleep(0.05)
+
+
+    status.config(
+        text="Sequence complete"
+    )
+
+
+#BIG QUIT IF THINGS GO WRONG
+
+def stop_all():
+
+    send_command("STOP")
+
+    status.config(
+        text="STOPPED"
+    )
+
+def close_program():
+
+    send_command("STOP")
+
+    if arduino is not None:
+        arduino.close()
+
+    root.destroy()
+
+
+#GUI settings
+
+root = tk.Tk()
+
+root.title(
+    "Actuator Controller"
+)
+
+root.geometry(
+    "700x750"
+)
+
+#title format
+
+title = ttk.Label(
+    root,
+    text="Linear Actuator Controller",
+    font=("Arial", 22)
+)
+
+title.pack(
+    pady=15
+)
+
+#individual controler GUI settings
+
+individual_frame = ttk.LabelFrame(
+    root,
+    text="Individual Actuator Control",
+    padding=15
+)
+
+individual_frame.pack(
+    fill="x",
+    padx=25,
+    pady=10
+)
+
+
+time_entries = []
+
+
+for i in range(NUM_ACTUATORS):
+
+    frame = ttk.Frame(
+        individual_frame
+    )
+
+    frame.pack(
+        fill="x",
+        pady=5
+    )
+
+
+    if i == 0:
+        pin_text = "D2 / D3"
+
+    elif i == 1:
+        pin_text = "D5 / D6"
+
+    else:
+        pin_text = "D9 / D10"
+
+
+    ttk.Label(
+        frame,
+        text=f"Actuator {i + 1} ({pin_text})",
+        width=25
+    ).pack(
+        side="left"
+    )
+
+
+    ttk.Label(
+        frame,
+        text="ms:"
+    ).pack(
+        side="left"
+    )
+
+
+    entry = ttk.Entry(
+        frame,
+        width=10
+    )
+
+    entry.insert(
+        0,
+        "500"
+    )
+
+    entry.pack(
+        side="left",
+        padx=5
+    )
+
+    time_entries.append(entry)
+
+
+    ttk.Button(
+        frame,
+        text="UP",
+        command=lambda i=i:
+            move_actuator(i, "U")
+    ).pack(
+        side="left",
+        padx=5
+    )
+
+
+    ttk.Button(
+        frame,
+        text="DOWN",
+        command=lambda i=i:
+            move_actuator(i, "D")
+    ).pack(
+        side="left"
+    )
+
+#sequence GIU
+
+sequence = ttk.LabelFrame(
+    root,
+    text="Action Sequence",
+    padding=15
+)
+
+sequence.pack(
+    fill="both",
+    expand=True,
+    padx=25,
+    pady=10
+)
+
+#add action
+
+controls = ttk.Frame(
+    sequence
+)
+
+controls.pack(
+    fill="x",
+    pady=5
+)
+
+
+ttk.Label(
+    controls,
+    text="Actuator:"
+).grid(
+    row=0,
+    column=0,
+    padx=5
+)
+
+
+actuator_selector = ttk.Combobox(
+    controls,
+    values=[
+        "0",
+        "1",
+        "2"
+    ],
+    width=8,
+    state="readonly"
+)
+
+actuator_selector.current(0)
+
+actuator_selector.grid(
+    row=0,
+    column=1,
+    padx=5
+)
+
+
+ttk.Label(
+    controls,
+    text="Direction:"
+).grid(
+    row=0,
+    column=2,
+    padx=5
+)
+
+
+direction_selector = ttk.Combobox(
+    controls,
+    values=[
+        "U",
+        "D"
+    ],
+    width=8,
+    state="readonly"
+)
+
+direction_selector.current(0)
+
+direction_selector.grid(
+    row=0,
+    column=3,
+    padx=5
+)
+
+
+ttk.Label(
+    controls,
+    text="Time (ms):"
+).grid(
+    row=0,
+    column=4,
+    padx=5
+)
+
+
+action_time = ttk.Entry(
+    controls,
+    width=10
+)
+
+action_time.insert(
+    0,
+    "500"
+)
+
+action_time.grid(
+    row=0,
+    column=5,
+    padx=5
+)
+
+
+ttk.Button(
+    controls,
+    text="ADD ACTION",
+    command=add_action
+).grid(
+    row=0,
+    column=6,
+    padx=10
+)
+
+#list actions
+
+action_list = tk.Listbox(
+    sequence,
+    height=10,
+    font=("Consolas", 11)
+)
+
+action_list.pack(
+    fill="both",
+    expand=True,
+    pady=10
+)
+
+#button for sequence
+
+sequence_buttons = ttk.Frame(
+    sequence
+)
+
+sequence_buttons.pack(
+    pady=5
+)
+
+
+ttk.Button(
+    sequence_buttons,
+    text="REMOVE SELECTED",
+    command=remove_action
+).pack(
+    side="left",
+    padx=5
+)
+
+
+ttk.Button(
+    sequence_buttons,
+    text="CLEAR",
+    command=clear_actions
+).pack(
+    side="left",
+    padx=5
+)
+
+
+ttk.Button(
+    sequence_buttons,
+    text="SEND SEQUENCE",
+    command=send_sequence
+).pack(
+    side="left",
+    padx=5
+)
+
+#halt button
+
+stop_button = tk.Button(
+    root,
+    text="STOP ALL ACTUATORS",
+    command=stop_all,
+    font=("Arial", 14),
+    padx=30,
+    pady=10
+)
+
+stop_button.pack(
+    pady=10
+)
+
+#status reader
+
+status = ttk.Label(
+    root,
+    text="Ready"
+)
+
+status.pack(
+    pady=5
+)
+
+#quit keybind
+
+root.bind(
+    "<Escape>",
+    lambda event: stop_all()
+)
+
+#quit all
+
+root.protocol(
+    "DELETE_WINDOW",
+    close_program
+)
+
+
+
+root.mainloop()
