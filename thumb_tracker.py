@@ -1,5 +1,5 @@
-from click import command
 import mediapipe as mp
+
 import cv2
 import time
 import math
@@ -36,8 +36,13 @@ THUMB_MAX_OT = 180
 
 thumb_value = None
 previous_value = None
+smoothed_value = None
 
-last_command = "STOP"
+last_movement_time = 0
+last_command = None
+
+MOVEMENT_THRESHOLD = 1.5
+STOP_DELAY = 0.3
 
 def map_value(value, in_min, in_max, out_min, out_max):
 
@@ -55,32 +60,13 @@ def send_thumb_value(value):
      global prev_thumb_value
      if arduino is None:
         return
-
-        if prev_thumb_value is None:
-             prev_thumb_value = current_value
-             return
-        
-
-        difference = current_value - prev_thumb_value 
-
-        if difference > 2:
-             command = "EXTEND/n"
-
-        elif difference < -2:
-            command = "RETRACT/n"
-       
-        else:
-                command = "STOP/n"
     
         try:
-            arduino.write(command.encode())
+            arduino.write((str(value) + "/n").encode())
+            arduino.flush()
 
         except Exception as e:
              print("serial error:", e)
-
-             previous_value = current_value
-
-             return command
 
 def main():
 
@@ -143,16 +129,14 @@ def main():
                          (thumb_y - ring_y) ** 2
                     )
 
-                    thumb_value = int(
-                        (distance - THUMB_MIN)
-                        / (THUMB_MAX - THUMB_MIN)
-                        *100
+                    thumb_value = map_value(
+                         distance,
+                         THUMB_MIN,
+                         THUMB_MAX,
+                         THUMB_MIN_OT,
+                         THUMB_MAX_OT
                     )
-
-                    thumb_value = max(
-                         0,
-                         min(100, thumb_value)
-                    )
+                    
 
                     print(
                          "distance:",
