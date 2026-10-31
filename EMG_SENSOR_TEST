@@ -1,0 +1,49 @@
+const int EMG_PIN = A0;
+const int NUM_SAMPLES = 200;
+
+int samples[NUM_SAMPLES];
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(EMG_PIN, INPUT);
+}
+
+void loop() {
+  long total = 0;
+  int minimum = 1023;
+  int maximum = 0;
+
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    int value = analogRead(EMG_PIN);
+    samples[i] = value;
+    total += value;
+
+    if (value < minimum) minimum = value;
+    if (value > maximum) maximum = value;
+
+    delayMicroseconds(1000);
+  }
+
+  float average = (float)total / NUM_SAMPLES;
+  float variation = 0;
+
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    variation += abs(samples[i] - average);
+  }
+
+  variation /= NUM_SAMPLES;
+
+  Serial.print("Average: ");
+  Serial.print(average, 2);
+  Serial.print(" | Variation: ");
+  Serial.print(variation, 2);
+  Serial.print(" | Range: ");
+  Serial.println(maximum - minimum);
+
+  delay(100);
+}
+
+
+
+
+

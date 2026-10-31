@@ -1,0 +1,38 @@
+const int extendPins[5] = {2, 4, 6, 8, 10};
+const int retractPins[5] = {3, 5, 7, 9, 11};
+
+void setup() {
+  for (int i = 0; i < 5; i++) {
+    pinMode(extendPins[i], OUTPUT);
+    pinMode(retractPins[i], OUTPUT);
+    digitalWrite(extendPins[i], LOW);
+    digitalWrite(retractPins[i], LOW);
+  }
+}
+
+void loop() {
+  for (int i = 0; i < 5; i++) {
+    digitalWrite(retractPins[i], LOW);
+    digitalWrite(extendPins[i], HIGH);
+  }
+  delay(3000);
+
+  for (int i = 0; i < 5; i++) {
+    digitalWrite(extendPins[i], LOW);
+    digitalWrite(retractPins[i], LOW);
+  }
+  delay(1000);
+
+  for (int i = 0; i < 5; i++) {
+    digitalWrite(extendPins[i], LOW);
+    digitalWrite(retractPins[i], HIGH);
+  }
+  delay(3000);
+
+  for (int i = 0; i < 5; i++) {
+    digitalWrite(extendPins[i], LOW);
+    digitalWrite(retractPins[i], LOW);
+  }
+
+  delay(2000);
+}
