@@ -7,7 +7,9 @@ import serial
 
 
 BAUD_RATE = 115200
-SEND_INTERVAL = 0.4
+SEND_INTERVAL = 0.1
+last_send_time = 0
+last_send_value = None
 
 mp_hands = mp.solutions.hands
 mp_draw = mp.solutions.drawing_utils
@@ -41,7 +43,7 @@ smoothed_value = None
 last_movement_time = 0
 last_command = None
 
-MOVEMENT_THRESHOLD = 1.5
+MOVEMENT_THRESHOLD = 5.0
 STOP_DELAY = 0.3
 
 def map_value(value, in_min, in_max, out_min, out_max):
@@ -57,18 +59,28 @@ def map_value(value, in_min, in_max, out_min, out_max):
     return int(output)
 
 def send_thumb_value(value):
-     global prev_thumb_value
-     if arduino is None:
+    global last_send_time, last_send_value
+    if arduino is None:
         return
+
+    now = time.time()
+
+    if now - last_send_time < SEND_INTERVAL:
+        return
+
     
-        try:
-            arduino.write((str(value) + "/n").encode())
+    try:
+            arduino.write((str(value) + "\n").encode())
             arduino.flush()
 
-        except Exception as e:
+            last_send_time = now
+            last_send_value = value
+
+    except Exception as e:
              print("serial error:", e)
 
 def main():
+    global smoothed_value
 
     cv2.namedWindow(
         "thumb tracking",
@@ -136,7 +148,14 @@ def main():
                          THUMB_MIN_OT,
                          THUMB_MAX_OT
                     )
-                    
+                    if smoothed_value is None:
+                         smoothed_value = thumb_value
+
+                    smoothed_value = (
+                         0.8 * smoothed_value + 0.2 * thumb_value
+                    )
+
+                    thumb_value = int(smoothed_value)
 
                     print(
                          "distance:",
@@ -157,7 +176,7 @@ def main():
 
                     cv2.putText(
                          frame,
-                         f"Thumb: {thumb_value}%",
+                         f"Thumb: {thumb_value}",
                          (30, 50),
                          cv2.FONT_HERSHEY_PLAIN,
                          1,
